@@ -1,0 +1,35 @@
+# Echidna Fuzzing Configuration for Escrow Contract
+# https://github.com/crytic/echidna
+
+behavior: {
+    "crytic-compile-source-agnostic": true
+}
+
+testMode: assertion  # assertion, property
+
+# Test functions to run
+testFunction: test_
+
+# Number of test runs
+seqLen: 100
+
+# Timeout per test (seconds)
+timeout: 60
+
+# Coverage
+coverage: true
+
+# Filter contracts to test
+contracts: {
+    "Escrow": {
+        "filterFunctions": [
+            "Escrow.test_*"
+        ]
+    }
+}
+
+# Filter directories
+filterDir: lib,cache,out
+
+# Solidity remappings
+solcRemaps: ["@openzeppelin/=lib/openzeppelin-contracts/"]

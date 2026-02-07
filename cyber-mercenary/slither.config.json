@@ -1,0 +1,22 @@
+# Slither Configuration for Cyber-Mercenary
+# https://github.com/crytic/slither
+
+{
+  "filter_paths": ["lib"],
+  "exclude_informational": true,
+  "exclude_low": true,
+  "exclude_medium": false,
+  "exclude_high": false,
+  "exclude_critical": false,
+  "solc_remaps": [
+    "@openzeppelin/=contracts/lib/openzeppelin-contracts/"
+  ],
+  "legacy_ast": false,
+  "truffle_working_dir": ".",
+  "contracts_dir": "contracts/src",
+  "solc_args": [
+    "--optimize",
+    "--optimize-runs",
+    "200"
+  ]
+}
