@@ -9,7 +9,7 @@ from typing import Optional
 from dataclasses import dataclass
 
 from web3 import Web3
-from web3.providers import WebsocketProvider
+from web3.providers import WebSocketProvider
 
 from config import Settings
 
