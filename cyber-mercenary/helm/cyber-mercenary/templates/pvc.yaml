@@ -1,0 +1,18 @@
+{{- if .Values.persistentVolume.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cyber-mercenary.fullname" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cyber-mercenary.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistentVolume.size }}
+  {{- if .Values.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.persistentVolume.storageClass }}
+  {{- end }}
+{{- end }}

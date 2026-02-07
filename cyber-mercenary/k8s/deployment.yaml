@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cyber-mercenary
+  namespace: production
+  labels:
+    app: cyber-mercenary
+    version: v1
+    tier: backend
+  annotations:
+    description: "Cyber-Mercenary AI Security Agent Deployment"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: cyber-mercenary
+  template:
+    metadata:
+      labels:
+        app: cyber-mercenary
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: cyber-mercenary
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: cyber-mercenary
+          image: ghcr.io/sketchbreezy/cyber-mercenary:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            - name: MONAD_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cyber-mercenary-secrets
+                  key: monad-rpc-url
+                  optional: false
+            - name: MONAD_CHAIN_ID
+              value: "10143"
+            - name: ESCROW_CONTRACT_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: cyber-mercenary-secrets
+                  key: escrow-contract-address
+                  optional: false
+            - name: MINIMAX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cyber-mercenary-secrets
+                  key: minimax-api-key
+                  optional: false
+            - name: MINIMAX_ENDPOINT
+              value: "https://openrouter.ai/api/v1/chat/completions"
+            - name: MINIMAX_MODEL
+              value: "minimax/minimax-m2.1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: cyber-mercenary-data
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 100Mi
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: cyber-mercenary
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: cyber-mercenary
+                topologyKey: kubernetes.io/hostname
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cyber-mercenary-data
+  namespace: production
+  labels:
+    app: cyber-mercenary
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard

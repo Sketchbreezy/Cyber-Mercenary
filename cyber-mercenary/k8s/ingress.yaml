@@ -1,0 +1,61 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cyber-mercenary
+  namespace: production
+  labels:
+    app: cyber-mercenary
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    description: "Cyber-Mercenary AI Security Agent Ingress"
+spec:
+  tls:
+    - hosts:
+        - api.cyber-mercenary.io
+      secretName: cyber-mercenary-tls
+  rules:
+    - host: api.cyber-mercenary.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cyber-mercenary
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: k8s.io/ingress-nginx
+---
+# Alternative: GKE Ingress for Google Cloud
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: cyber-mercenary-cert
+  namespace: production
+spec:
+  domains:
+    - api.cyber-mercenary.io
+---
+apiVersion: networking.gke.io/v1
+kind: FrontendConfig
+metadata:
+  name: cyber-mercenary-frontend
+  namespace: production
+spec:
+  redirectToHttps:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY_DEFAULT

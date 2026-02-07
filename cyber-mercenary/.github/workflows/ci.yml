@@ -1,0 +1,128 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+  MONAD_CHAIN_ID: 10143
+
+jobs:
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          pip install --upgrade pip
+          pip install black ruff mypy
+
+      - name: Check Python formatting with Black
+        run: black --check --diff agent/src/
+
+      - name: Lint Python with Ruff
+        run: ruff check agent/src/
+
+      - name: Type checking with mypy
+        run: mypy agent/src/ --ignore-missing-imports
+
+      - name: Check Solidity formatting
+        run: forge fmt --check contracts/src/
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-type: [unit, integration, contract]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e agent/.[dev]
+          pip install pytest-asyncio pytest-cov httpx
+
+      - name: Run Python unit tests
+        if: matrix.test-type == 'unit'
+        run: |
+          pytest tests/ -v --cov=agent/src --cov-report=xml --cov-report=term-missing
+        working-directory: ./agent
+
+      - name: Run Python integration tests
+        if: matrix.test-type == 'integration'
+        run: |
+          pytest tests/api/ -v --cov=agent/src/api --cov-report=xml
+        working-directory: ./agent
+
+      - name: Set up Foundry
+        if: matrix.test-type == 'contract'
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install Foundry dependencies
+        if: matrix.test-type == 'contract'
+        run: forge install
+
+      - name: Compile Solidity contracts
+        if: matrix.test-type == 'contract'
+        run: forge build
+
+      - name: Run Forge tests
+        if: matrix.test-type == 'contract'
+        run: forge test --match-contract EscrowTest -vv
+
+      - name: Upload coverage
+        if: matrix.test-type == 'unit' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./agent/coverage.xml
+          fail_ci_if_error: false
+
+  build-verification:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Verify Python build
+        run: |
+          pip install -e agent/.[dev]
+          python -c "from api.server import app; print('FastAPI app imported successfully')"
+
+      - name: Verify Solidity build
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+        run: forge build --force
+
+      - name: Check dependency tree
+        run: pip tree
