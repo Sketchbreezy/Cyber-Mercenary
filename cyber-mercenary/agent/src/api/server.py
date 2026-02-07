@@ -5,16 +5,23 @@ Provides REST API for agent communication and control.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from config import Settings
-from main import CyberMercenary
+
+# Use TYPE_CHECKING to avoid circular import
+if TYPE_CHECKING:
+    from main import CyberMercenary
+
+_agent = None
 
 logger = logging.getLogger(__name__)
+
+_agent = None
 
 
 # Request/Response Models
@@ -78,10 +85,10 @@ class StatsResponse(BaseModel):
 
 
 # Global agent reference
-_agent: Optional[CyberMercenary] = None
+_agent = None
 
 
-def set_agent(agent: CyberMercenary):
+def set_agent(agent):
     """Set the global agent reference"""
     global _agent
     _agent = agent
@@ -274,7 +281,8 @@ async def _run_scan(scan_id: str, address: str, chain_id: int):
         logger.error(f"Scan {scan_id} failed: {e}")
 
 
-def create_app(agent: CyberMercenary) -> FastAPI:
+def create_app(agent) -> FastAPI:
     """Create and configure the FastAPI app"""
-    set_agent(agent)
+    global _agent
+    _agent = agent
     return app
