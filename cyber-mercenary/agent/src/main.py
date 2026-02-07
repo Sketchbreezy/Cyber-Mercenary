@@ -1,164 +1,70 @@
 """
-Cyber-Mercenary Agent - Main Entry Point
-
-Autonomous AI security agent for Monad blockchain that:
-1. Proactively scans for vulnerabilities
-2. Generates signed warnings
-3. Monetizes through bounty system
-4. Handles reactive gigs
+Cyber-Mercenary Agent - Minimal Working Version
 """
 
 import asyncio
 import logging
+import os
 import sys
-from pathlib import Path
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import Settings
+# Simple config - just read .env directly
+def getenv(key, default=""):
+    return os.environ.get(key, default)
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("data/agent.log"),
-    ],
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
+# Check config
+PRIVATE_KEY = getenv("PRIVATE_KEY")
+MINIMAX_API_KEY = getenv("MINIMAX_API_KEY")
 
-class CyberMercenary:
-    """Main agent orchestrator"""
+if not PRIVATE_KEY:
+    logger.error("❌ PRIVATE_KEY not set in .env")
+    exit(1)
 
-    def __init__(self, config: Settings):
-        self.config = config
-        self.running = False
+if not MINIMAX_API_KEY:
+    logger.error("❌ MINIMAX_API_KEY not set in .env")  
+    exit(1)
 
-        # Initialize services
-        from services.minimax import MiniMaxClient
-        from services.scanner import ContractScanner
-        from services.signer import SignatureManager
-        from services.notifier import NotificationService
-
-        self.minimax = MiniMaxClient(config)
-        self.scanner = ContractScanner(config)
-        self.signer = SignatureManager(config)
-        self.notifier = NotificationService(config)
-
-        # Initialize jobs
-        from jobs.scanner_job import ScannerJob
-        from jobs.bounty_job import BountyJob
-
-        self.scanner_job = ScannerJob(self, config)
-        self.bounty_job = BountyJob(self, config)
-
-        logger.info(f"CyberMercenary initialized: {config.agent.name}")
-
-    async def start(self):
-        """Start the agent"""
-        self.running = True
-        logger.info("Starting CyberMercenary agent...")
-
-        # Start background tasks
-        tasks = [
-            asyncio.create_task(self.scanner_job.run()),
-            asyncio.create_task(self.bounty_job.run()),
-        ]
-
-        # Start API server
-        from api.server import app, set_agent
-        set_agent(self)
-
-        import uvicorn
-        config = uvicorn.Config(
-            app,
-            host="0.0.0.0",
-            port=8000,
-            log_level="info",
-        )
-        server = uvicorn.Server(config)
-
-        # Run everything
-        await asyncio.gather(
-            *tasks,
-            server.serve(),
-        )
-
-    async def stop(self):
-        """Stop the agent"""
-        self.running = False
-        logger.info("Stopping CyberMercenary agent...")
-
-    async def analyze_contract(self, contract_address: str, chain_id: int):
-        """Analyze a contract for vulnerabilities"""
-        logger.info(f"Analyzing contract: {contract_address}")
-
-        # Get contract code
-        code = await self.scanner.get_contract_code(
-            contract_address, chain_id
-        )
-
-        # Send to MiniMax for analysis
-        analysis = await self.minimax.analyze_contract(code)
-
-        # Generate signed warning if vulnerabilities found
-        if analysis.vulnerabilities:
-            warning = await self.minimax.generate_warning(
-                analysis.vulnerabilities[0],
-                contract_address,
-            )
-            signature = self.signer.sign_warning(warning)
-
-            return {
-                "analysis": analysis,
-                "warning": warning,
-                "signature": signature,
-            }
-
-        return {"analysis": analysis, "warning": None, "signature": None}
-
-    async def submit_bounty_report(
-        self, bounty_id: int, ipfs_hash: str, vulnerability
-    ):
-        """Submit a vulnerability report to a bounty"""
-        logger.info(f"Submitting report for bounty: {bounty_id}")
-
-        # Generate signature
-        message = f"{bounty_id}:{ipfs_hash}"
-        signature = self.signer.sign_message(message)
-
-        # Submit to contract
-        tx_hash = await self.scanner.submit_report(
-            bounty_id, ipfs_hash, signature
-        )
-
-        return tx_hash
+logger.info("✅ Configuration validated")
 
 
 async def main():
     """Main entry point"""
-    config = Settings()
-
-    if not config.validate():
-        logger.error("Invalid configuration. Please check .env file.")
-        logger.error("Missing: PRIVATE_KEY or MINIMAX_API_KEY")
-        sys.exit(1)
-
-    agent = CyberMercenary(config)
-
-    try:
-        await agent.start()
-    except KeyboardInterrupt:
-        logger.info("Received shutdown signal")
-        await agent.stop()
-    except Exception as e:
-        logger.error(f"Agent error: {e}")
-        await agent.stop()
-        raise
+    logger.info("🚀 Cyber-Mercenary Agent Starting...")
+    logger.info(f"📡 RPC: {getenv('MONAD_RPC_URL', 'wss://monad-testnet.drpc.org')}")
+    logger.info(f"🔗 Chain ID: {getenv('MONAD_CHAIN_ID', '10143')}")
+    
+    # Import services
+    from api.server import app
+    import uvicorn
+    
+    # Set up agent reference for API
+    from api.server import _agent as api_agent
+    api_agent._agent = None  # Will be set when we have full agent
+    
+    logger.info("🌐 Starting API server on port 8000...")
+    
+    # Start server
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    
+    await server.serve()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("👋 Shutting down...")
+    except Exception as e:
+        logger.error(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
