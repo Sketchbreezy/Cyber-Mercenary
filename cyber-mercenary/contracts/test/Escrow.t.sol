@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2} from "@forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {Escrow} from "../src/Escrow.sol";
 
 /// @title Escrow Contract Tests
@@ -46,17 +46,8 @@ contract EscrowTest is Test {
         assertEq(escrow.bountyCount(), 1);
 
         // Verify bounty state
-        (
-            uint256 id,
-            address payable dev,
-            uint256 amount,
-            bool claimed,
-            bool disputed,
-            string memory hash,
-            ,
-            uint256 createdAt,
-            uint256 expiresAt
-        ) = escrow.bounties(1);
+        assertEq(escrow.bountyCount(), 1);
+        (uint256 id, address payable dev, uint256 amount, bool claimed, bool disputed, string memory hash, bytes memory agentSig, uint256 createdAt, uint256 expiresAt) = escrow.bounties(1);
 
         assertEq(id, 1);
         assertEq(dev, developer);
@@ -107,7 +98,7 @@ contract EscrowTest is Test {
         escrow.submitReport(1, signature);
 
         // Verify report was submitted
-        (, , , , , bytes memory agentSig, , ) = escrow.bounties(1);
+        (, , , , , , bytes memory agentSig, , ) = escrow.bounties(1);
         assertTrue(agentSig.length > 0);
     }
 
@@ -163,7 +154,8 @@ contract EscrowTest is Test {
         escrow.claimBounty(1);
 
         // Verify
-        assertTrue(escrow.bounties(1).claimed);
+        (, , , bool claimed, , , , , ) = escrow.bounties(1);
+        assertTrue(claimed);
         assertEq(developer.balance, balanceBefore + 0.0095 ether); // 0.01 - 5% fee
     }
 
@@ -212,7 +204,8 @@ contract EscrowTest is Test {
         escrow.disputeBounty(1);
 
         // Verify
-        assertTrue(escrow.bounties(1).disputed);
+        (, , , , bool disputed, , , , ) = escrow.bounties(1);
+        assertTrue(disputed);
     }
 
     function test_disputeBounty_notDeveloper() public {
@@ -259,8 +252,9 @@ contract EscrowTest is Test {
         escrow.resolveDispute(1, true);
 
         // Verify
-        assertTrue(escrow.bounties(1).claimed);
-        assertFalse(escrow.bounties(1).disputed);
+        (, , , bool claimed, bool disputed, , , , ) = escrow.bounties(1);
+        assertTrue(claimed);
+        assertFalse(disputed);
     }
 
     function test_resolveDispute_refund() public {
@@ -281,8 +275,9 @@ contract EscrowTest is Test {
         escrow.resolveDispute(1, false);
 
         // Verify
-        assertTrue(escrow.bounties(1).claimed);
-        assertFalse(escrow.bounties(1).disputed);
+        (, , , bool claimed, bool disputed, , , , ) = escrow.bounties(1);
+        assertTrue(claimed);
+        assertFalse(disputed);
         assertEq(owner.balance, balanceBefore + 0.0095 ether);
     }
 
