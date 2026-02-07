@@ -76,8 +76,8 @@ class Settings:
 
         self.minimax = MiniMaxConfig(
             api_key=os.getenv("MINIMAX_API_KEY", ""),
-            endpoint=os.getenv("MINIMAX_ENDPOINT", "https://api.minimax.chat/v1/text/chatcompletion_v2"),
-            model=os.getenv("MINIMAX_MODEL", "abab6.5s-chat"),
+            endpoint=os.getenv("MINIMAX_ENDPOINT", "https://openrouter.ai/api/v1/chat/completions"),
+            model=os.getenv("MINIMAX_MODEL", "minimax/minimax-m2"),
             max_tokens=int(os.getenv("MINIMAX_MAX_TOKENS", "4096")),
             temperature=float(os.getenv("MINIMAX_TEMPERATURE", "0.7")),
         )
