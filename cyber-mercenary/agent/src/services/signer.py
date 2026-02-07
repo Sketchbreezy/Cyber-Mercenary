@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 from dataclasses import dataclass
 from eth_account import Account
-from eth_account.messages import encode_structured_data
+from eth_account.messages import encode_typed_data
 from eth_hash import keccak
 
 from config import Settings
@@ -69,7 +69,7 @@ class SignatureManager:
             account = self._get_account()
 
             # Encode the message (EIP-191 standard)
-            encoded = encode_structured_data(
+            encoded = encode_typed_data(
                 {"primaryType": "Message", "types": {"EIP712Domain": []}}
             )
             # For simple string messages
