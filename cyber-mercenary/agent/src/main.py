@@ -140,10 +140,11 @@ class CyberMercenary:
 
 async def main():
     """Main entry point"""
-    config = Settings()
+    config = Settings.from_env()
 
     if not config.validate():
         logger.error("Invalid configuration. Please check .env file.")
+        logger.error("Missing: PRIVATE_KEY or MINIMAX_API_KEY")
         sys.exit(1)
 
     agent = CyberMercenary(config)

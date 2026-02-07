@@ -1,123 +1,101 @@
 """
 Cyber-Mercenary Configuration
 
-Loads settings from environment variables with validation.
+Loads settings from environment variables.
 """
 
 import os
 from pathlib import Path
-from functools import lru_cache
 from typing import Optional
-
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
 
 
-class BlockchainConfig(BaseModel):
-    """Blockchain configuration"""
-    monad_rpc_url: str = Field(
-        default="wss://monad-testnet.drpc.org",
-        description="Monad RPC endpoint"
-    )
-    monad_chain_id: int = Field(default=10143, description="Monad chain ID")
-    private_key: Optional[str] = Field(default=None, description="Agent wallet private key")
-    agent_address: Optional[str] = Field(default=None, description="Agent wallet address")
+class Settings(BaseModel):
+    """Main settings class - loads from environment"""
 
-    @property
-    def is_configured(self) -> bool:
-        return bool(self.private_key)
+    # Blockchain
+    monad_rpc_url: str = Field(default="wss://monad-testnet.drpc.org")
+    monad_chain_id: int = Field(default=10143)
+    private_key: Optional[str] = Field(default=None)
+    agent_address: Optional[str] = Field(default=None)
 
+    # MiniMax AI
+    minimax_api_key: str = Field(default="")
+    minimax_endpoint: str = Field(default="https://api.minimax.chat/v1/text/chatcompletion_v2")
+    minimax_model: str = Field(default="abab6.5s-chat")
+    minimax_max_tokens: int = Field(default=4096)
+    minimax_temperature: float = Field(default=0.7)
 
-class MiniMaxConfig(BaseModel):
-    """MiniMax AI configuration"""
-    api_key: str = Field(default="", description="MiniMax API key")
-    endpoint: str = Field(
-        default="https://api.minimax.chat/v1/text/chatcompletion_v2",
-        description="MiniMax API endpoint"
-    )
-    model: str = Field(default="abab6.5s-chat", description="MiniMax model")
-    max_tokens: int = Field(default=4096, description="Max response tokens")
-    temperature: float = Field(default=0.7, description="Model temperature")
+    # Database
+    database_url: str = Field(default="sqlite:///./data/cyber_mercenary.db")
 
+    # Agent settings
+    agent_name: str = Field(default="CyberMercenary")
+    signing_interval_minutes: int = Field(default=5)
+    scan_interval_minutes: int = Field(default=30)
+    scan_depth: str = Field(default="standard")
 
-class DatabaseConfig(BaseModel):
-    """Database configuration"""
-    url: str = Field(
-        default="sqlite:///./data/cyber_mercenary.db",
-        description="Database connection URL"
-    )
-    pool_size: int = Field(default=10, description="Connection pool size")
+    # Contracts (fill after deployment)
+    escrow_contract_address: Optional[str] = Field(default=None)
+    bounty_registry_address: Optional[str] = Field(default=None)
+    signature_verifier_address: Optional[str] = Field(default=None)
 
+    # IPFS
+    ipfs_node_url: str = Field(default="http://127.0.0.1:5001")
+    ipfs_gateway: str = Field(default="https://gateway.pinata.cloud")
+    ipfs_api_key: Optional[str] = Field(default=None)
+    ipfs_api_secret: Optional[str] = Field(default=None)
 
-class AgentConfig(BaseModel):
-    """Agent runtime configuration"""
-    name: str = Field(default="CyberMercenary", description="Agent name")
-    signing_interval_minutes: int = Field(default=5, description="Signing interval")
-    scan_interval_minutes: int = Field(default=30, description="Scan interval")
-    scan_depth: str = Field(default="standard", description="Scan depth level")
+    # Monitoring
+    log_level: str = Field(default="INFO")
+    log_file: str = Field(default="./data/cyber_mercenary.log")
+    metrics_port: int = Field(default=9090)
+    metrics_enabled: bool = Field(default=True)
 
-
-class IPFSConfig(BaseModel):
-    """IPFS configuration"""
-    node_url: str = Field(default="http://127.0.0.1:5001", description="IPFS node URL")
-    gateway: str = Field(
-        default="https://gateway.pinata.cloud",
-        description="IPFS gateway"
-    )
-    api_key: Optional[str] = Field(default=None, description="IPFS API key")
-    api_secret: Optional[str] = Field(default=None, description="IPFS API secret")
-
-
-class ContractsConfig(BaseModel):
-    """Smart contract addresses"""
-    escrow: Optional[str] = Field(default=None, description="Escrow contract address")
-    registry: Optional[str] = Field(default=None, description="Registry contract address")
-
-
-class MonitoringConfig(BaseModel):
-    """Monitoring and logging configuration"""
-    log_level: str = Field(default="INFO", description="Log level")
-    log_file: str = Field(default="./data/agent.log", description="Log file path")
-    metrics_port: int = Field(default=9090, description="Metrics port")
-    metrics_enabled: bool = Field(default=True, description="Enable metrics")
-
-
-class Settings(BaseSettings):
-    """Main settings class - loads from .env"""
-
-    # Configuration sections
-    blockchain: BlockchainConfig = Field(default_factory=BlockchainConfig)
-    minimax: MiniMaxConfig = Field(default_factory=MiniMaxConfig)
-    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
-    agent: AgentConfig = Field(default_factory=AgentConfig)
-    ipfs: IPFSConfig = Field(default_factory=IPFSConfig)
-    contracts: ContractsConfig = Field(default_factory=ContractsConfig)
-    monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
+    # Frontend (Viem/Wagmi)
+    next_public_chain_id: int = Field(default=10143)
+    next_public_escrow_address: Optional[str] = Field(default=None)
+    next_public_rpc_url: str = Field(default="wss://monad-testnet.drpc.org")
 
     class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        env_nested_delimiter = "__"
+        env_prefix = "CYBER_MERCENARY_"
+        case_insensitive = True
+
+    @classmethod
+    def from_env(cls):
+        """Load settings from environment variables"""
+        return cls(
+            monad_rpc_url=os.getenv("MONAD_RPC_URL", "wss://monad-testnet.drpc.org"),
+            monad_chain_id=int(os.getenv("MONAD_CHAIN_ID", 10143)),
+            private_key=os.getenv("PRIVATE_KEY"),
+            agent_address=os.getenv("AGENT_ADDRESS"),
+            minimax_api_key=os.getenv("MINIMAX_API_KEY", ""),
+            minimax_endpoint=os.getenv("MINIMAX_ENDPOINT", "https://api.minimax.chat/v1/text/chatcompletion_v2"),
+            minimax_model=os.getenv("MINIMAX_MODEL", "abab6.5s-chat"),
+            database_url=os.getenv("DATABASE_URL", "sqlite:///./data/cyber_mercenary.db"),
+            agent_name=os.getenv("AGENT_NAME", "CyberMercenary"),
+            signing_interval_minutes=int(os.getenv("SIGNING_INTERVAL_MINUTES", 5)),
+            scan_interval_minutes=int(os.getenv("SCAN_INTERVAL_MINUTES", 30)),
+            escrow_contract_address=os.getenv("ESCROW_CONTRACT_ADDRESS"),
+            bounty_registry_address=os.getenv("BOUNTY_REGISTRY_ADDRESS"),
+            signature_verifier_address=os.getenv("SIGNATURE_VERIFIER_ADDRESS"),
+            ipfs_node_url=os.getenv("IPFS_NODE_URL", "http://127.0.0.1:5001"),
+            ipfs_gateway=os.getenv("IPFS_GATEWAY", "https://gateway.pinata.cloud"),
+            ipfs_api_key=os.getenv("IPFS_API_KEY"),
+            ipfs_api_secret=os.getenv("IPFS_API_SECRET"),
+            log_level=os.getenv("LOG_LEVEL", "INFO"),
+            log_file=os.getenv("LOG_FILE", "./data/cyber_mercenary.log"),
+            metrics_port=int(os.getenv("METRICS_PORT", 9090)),
+            metrics_enabled=os.getenv("METRICS_ENABLED", "true").lower() == "true",
+            next_public_chain_id=int(os.getenv("NEXT_PUBLIC_CHAIN_ID", 10143)),
+            next_public_escrow_address=os.getenv("NEXT_PUBLIC_ESCROW_ADDRESS"),
+            next_public_rpc_url=os.getenv("NEXT_PUBLIC_RPC_URL", "wss://monad-testnet.drpc.org"),
+        )
 
     def validate(self) -> bool:
         """Validate configuration"""
-        if not self.blockchain.is_configured:
+        if not self.private_key:
             return False
-
-        if not self.minimax.api_key:
+        if not self.minimax_api_key:
             return False
-
         return True
-
-    def get_web3_config(self) -> dict:
-        """Get Web3.py configuration"""
-        return {
-            "endpoint_uri": self.blockchain.monad_rpc_url,
-            "chain_id": self.blockchain.monad_chain_id,
-        }
-
-
-@lru_cache()
-def get_settings() -> Settings:
-    """Get cached settings instance"""
-    return Settings()
