@@ -36,6 +36,11 @@ class ContractsConfig:
     bounty_registry: Optional[str] = None
     signature_verifier: Optional[str] = None
 
+    def __init__(self, escrow: str = None, bounty_registry: str = None, signature_verifier: str = None):
+        self.escrow = escrow
+        self.bounty_registry = bounty_registry
+        self.signature_verifier = signature_verifier
+
 
 @dataclass
 class DatabaseConfig:

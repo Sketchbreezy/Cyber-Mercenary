@@ -318,4 +318,86 @@ async def verify_signature(request: VerifyRequest):
     }
 
 
+class BountyDisputeRequest(BaseModel):
+    bounty_id: int
+
+
+class BountyResolveRequest(BaseModel):
+    bounty_id: int
+    reward_developer: bool
+
+
+@app.post("/api/v1/bounty/{bounty_id}/dispute")
+async def dispute_bounty(request: BountyDisputeRequest):
+    """File a dispute for a bounty"""
+    if not scanner.is_connected():
+        raise HTTPException(status_code=503, detail="Blockchain not connected")
+
+    tx_hash = await scanner.dispute_bounty(request.bounty_id)
+
+    if tx_hash.startswith("error"):
+        raise HTTPException(status_code=400, detail=tx_hash)
+
+    return {
+        "bounty_id": request.bounty_id,
+        "tx_hash": tx_hash,
+        "status": "disputed"
+    }
+
+
+@app.post("/api/v1/bounty/{bounty_id}/resolve")
+async def resolve_dispute(request: BountyResolveRequest):
+    """Resolve a dispute (owner only)"""
+    if not scanner.is_connected():
+        raise HTTPException(status_code=503, detail="Blockchain not connected")
+
+    tx_hash = await scanner.resolve_dispute(request.bounty_id, request.reward_developer)
+
+    if tx_hash.startswith("error"):
+        raise HTTPException(status_code=400, detail=tx_hash)
+
+    return {
+        "bounty_id": request.bounty_id,
+        "tx_hash": tx_hash,
+        "reward_developer": request.reward_developer,
+        "status": "resolved"
+    }
+
+
+@app.post("/api/v1/bounty/{bounty_id}/claim")
+async def claim_bounty(bounty_id: int):
+    """Claim a bounty"""
+    if not scanner.is_connected():
+        raise HTTPException(status_code=503, detail="Blockchain not connected")
+
+    tx_hash = await scanner.claim_bounty(bounty_id)
+
+    if tx_hash.startswith("error"):
+        raise HTTPException(status_code=400, detail=tx_hash)
+
+    return {
+        "bounty_id": bounty_id,
+        "tx_hash": tx_hash,
+        "status": "claimed"
+    }
+
+
+@app.post("/api/v1/bounty/{bounty_id}/report")
+async def submit_report(bounty_id: int, signature: str):
+    """Submit a vulnerability report with signature"""
+    if not scanner.is_connected():
+        raise HTTPException(status_code=503, detail="Blockchain not connected")
+
+    tx_hash = await scanner.submit_report(bounty_id, signature)
+
+    if tx_hash.startswith("error"):
+        raise HTTPException(status_code=400, detail=tx_hash)
+
+    return {
+        "bounty_id": bounty_id,
+        "tx_hash": tx_hash,
+        "status": "report_submitted"
+    }
+
+
 logger.info("✅ API Server loaded (Phase 2)")
