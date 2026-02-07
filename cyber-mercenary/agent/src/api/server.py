@@ -2,12 +2,12 @@
 Cyber-Mercenary API - Phase 2
 
 Integrated API with MiniMax AI, database, and ECDSA signing.
-Phase 3: Added rate limiting for production hardening.
+Phase 3: Added rate limiting and security headers for production hardening.
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, validator, constr
 from typing import Optional, List
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -15,12 +15,20 @@ from slowapi.errors import RateLimitExceeded
 import logging
 import uuid
 import asyncio
+import re
 
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import settings
+from security import (
+    SecurityHeadersMiddleware,
+    sanitize_input,
+    validate_ethereum_address,
+    sanitize_numeric_input,
+    sanitize_ipfs_hash
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +57,11 @@ except Exception as e:
 app = FastAPI(
     title="Cyber-Mercenary API",
     description="Autonomous AI security agent for Monad",
-    version="2.0.0",
+    version="3.0.0",
 )
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Add rate limiter to app
 app.state.limiter = limiter
@@ -77,12 +88,32 @@ app.add_middleware(
 
 # Request/Response Models
 class ScanRequest(BaseModel):
-    contract_address: str
+    """Request model for contract scanning"""
+    contract_address: constr(min_length=42, max_length=42)  # 0x + 40 hex chars
     chain_id: int = 10143
     scan_depth: str = "standard"
+    
+    @validator('contract_address')
+    def validate_address(cls, v):
+        if not validate_ethereum_address(v):
+            raise ValueError('Invalid Ethereum address format')
+        return v.lower()
+    
+    @validator('chain_id')
+    def validate_chain_id(cls, v):
+        if v not in [10143, 1, 5, 11155111]:  # Monad testnet, Ethereum, Goerli, Sepolia
+            raise ValueError('Unsupported chain ID')
+        return v
+    
+    @validator('scan_depth')
+    def validate_scan_depth(cls, v):
+        if v not in ['standard', 'deep', 'quick']:
+            raise ValueError('Invalid scan depth')
+        return v
 
 
 class ScanResponse(BaseModel):
+    """Response model for scan results"""
     scan_id: str
     status: str
     contract_address: str
@@ -93,28 +124,85 @@ class ScanResponse(BaseModel):
 
 
 class BountyRequest(BaseModel):
+    """Request model for bounty creation"""
     amount_wei: int
-    ipfs_hash: str
+    ipfs_hash: constr(min_length=46, max_length=59)  # IPFS CIDv0/v1
     expires_in: int = 86400
+    
+    @validator('amount_wei')
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('Amount must be positive')
+        if v > 10**22:  # Max 10,000 ETH
+            raise ValueError('Amount exceeds maximum')
+        return v
+    
+    @validator('ipfs_hash')
+    def validate_ipfs_hash(cls, v):
+        if not re.match(r'^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-zA-Z0-9]{52,})$', v):
+            raise ValueError('Invalid IPFS hash format')
+        return v
+    
+    @validator('expires_in')
+    def validate_expires_in(cls, v):
+        if v < 3600:  # Minimum 1 hour
+            raise ValueError('Expires in must be at least 1 hour')
+        if v > 30 * 86400:  # Maximum 30 days
+            raise ValueError('Expires in cannot exceed 30 days')
+        return v
 
 
 class SignRequest(BaseModel):
-    message: str
+    """Request model for message signing"""
+    message: constr(max_length=1000)
+    
+    @validator('message')
+    def validate_message(cls, v):
+        # Remove null bytes and sanitize
+        v = v.replace('\x00', '')
+        return v.strip()
 
 
 class VerifyRequest(BaseModel):
-    message: str
-    signature: str
-    address: str
+    """Request model for signature verification"""
+    message: constr(max_length=1000)
+    signature: constr(min_length=132, max_length=138)  # Ethereum signature
+    address: constr(min_length=42, max_length=42)
+    
+    @validator('signature')
+    def validate_signature(cls, v):
+        if not re.match(r'^0x[a-fA-F0-9]{130}$', v):
+            raise ValueError('Invalid signature format')
+        return v.lower()
+    
+    @validator('address')
+    def validate_address(cls, v):
+        if not validate_ethereum_address(v):
+            raise ValueError('Invalid Ethereum address format')
+        return v.lower()
 
 
 class BountyDisputeRequest(BaseModel):
+    """Request model for bounty dispute"""
     bounty_id: int
+    
+    @validator('bounty_id')
+    def validate_bounty_id(cls, v):
+        if v <= 0:
+            raise ValueError('Bounty ID must be positive')
+        return v
 
 
 class BountyResolveRequest(BaseModel):
+    """Request model for bounty resolution"""
     bounty_id: int
     reward_developer: bool
+    
+    @validator('bounty_id')
+    def validate_bounty_id(cls, v):
+        if v <= 0:
+            raise ValueError('Bounty ID must be positive')
+        return v
 
 
 # Background task for async scanning
@@ -195,7 +283,7 @@ async def health_check(request: Request):
     return {
         "status": "healthy",
         "agent": "CyberMercenary",
-        "phase": "2",
+        "phase": "3",
         "services": "ready" if services_ready else "limited"
     }
 
@@ -206,9 +294,9 @@ async def root(request: Request):
     """Root endpoint"""
     return {
         "name": "Cyber-Mercenary",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "status": "running",
-        "phase": 2
+        "phase": 3
     }
 
 
@@ -366,12 +454,16 @@ async def claim_bounty(request: Request, bounty_id: int):
 
 
 @app.post("/api/v1/bounty/{bounty_id}/report")
-async def submit_report(bounty_id: int, signature: str):
+async def submit_report(bounty_id: int, report_request: VerifyRequest):
     """Submit a vulnerability report with signature"""
     if not scanner.is_connected():
         raise HTTPException(status_code=503, detail="Blockchain not connected")
 
-    tx_hash = await scanner.submit_report(bounty_id, signature)
+    # Validate bounty_id
+    if bounty_id <= 0:
+        raise HTTPException(status_code=400, detail="Invalid bounty ID")
+
+    tx_hash = await scanner.submit_report(bounty_id, report_request.signature)
 
     if tx_hash.startswith("error"):
         raise HTTPException(status_code=400, detail=tx_hash)
