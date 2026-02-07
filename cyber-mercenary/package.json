@@ -1,0 +1,45 @@
+{
+  "name": "cyber-mercenary",
+  "version": "1.0.0",
+  "description": "Autonomous AI security agent for Monad blockchain",
+  "private": true,
+  "scripts": {
+    "compile": "forge build && hardhat compile",
+    "test": "forge test",
+    "test:coverage": "forge coverage",
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network monadTestnet",
+    "deploy:mainnet": "hardhat run scripts/deploy.ts --network monad",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "format": "forge fmt && prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "agent:run": "python -m agent.src.main",
+    "agent:dev": "python -m uvicorn agent.src.main:app --reload",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "setup": "bash scripts/setup.sh",
+    "clean": "forge clean && hardhat clean && rm -rf node_modules frontend/node_modules"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.4",
+    "ts-node": "^10.9.2",
+    "typechain": "^5.2.0",
+    "typescript": "^5.4.5",
+    "viem": "^2.13.1",
+    "wagmi": "^2.9.2",
+    "@tanstack/react-query": "^5.40.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.24.0",
+    "tailwindcss": "^3.4.4",
+    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.19"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "solhint": "^4.5.2",
+    "prettier": "^3.3.2",
+    "prettier-plugin-solidity": "^1.2.0"
+  }
+}

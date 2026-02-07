@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+artifacts/
+cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+*.DS_Store
+
+# Logs
+*.log
+logs/
+data/*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# TypeScript
+*.tsbuildinfo
+
+# Hardhat
+cache_hardhat/
+
+# Foundry
+forge-cache/
+out/
+
+# Viem/Wagmi
+.env.local
+
+# Secrets - NEVER commit these!
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
