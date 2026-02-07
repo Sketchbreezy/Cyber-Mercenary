@@ -1,0 +1,35 @@
+[Unit]
+Description=Cyber-Mercenary AI Security Agent
+Documentation=https://github.com/Sketchbreezy/Cyber-Mercenary
+After=network.target
+
+[Service]
+Type=simple
+User=appuser
+WorkingDirectory=/opt/cyber-mercenary
+ExecStart=/usr/bin/python3 /opt/cyber-mercenary/agent/src/main.py
+Restart=always
+RestartSec=10
+Environment=MONAD_RPC_URL=wss://monad-testnet.drpc.org
+Environment=MONAD_CHAIN_ID=10143
+Environment=PRIVATE_KEY=
+Environment=MINIMAX_API_KEY=
+Environment=ESCROW_CONTRACT_ADDRESS=0xD2eCA8c096293BA3137bAeF47714f5Df1f6233cd
+Environment=SCAN_INTERVAL_MINUTES=30
+Environment=LOG_LEVEL=INFO
+EnvironmentFile=/opt/cyber-mercenary/.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cyber-mercenary
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cyber-mercenary/data /opt/cyber-mercenary/logs
+
+[Install]
+WantedBy=multi-user.target
