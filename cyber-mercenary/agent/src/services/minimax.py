@@ -11,9 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
-from pydantic import BaseModel
-
-from config import Settings, MiniMaxConfig
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +29,7 @@ class Vulnerability:
 @dataclass
 class ContractAnalysis:
     """Contract analysis result"""
-    vulnerabilities: list[Vulnerability]
+    vulnerabilities: list
     overall_risk_score: float
     summary: str
     contract_address: str
@@ -41,7 +38,7 @@ class ContractAnalysis:
 class MiniMaxClient:
     """MiniMax API client for AI-powered contract analysis"""
 
-    def __init__(self, config: Settings):
+    def __init__(self, config):
         self.config = config
         self.minimax = config.minimax
         self.client = httpx.AsyncClient(timeout=60.0)
@@ -74,24 +71,28 @@ class MiniMaxClient:
     async def analyze_contract(self, contract_code: str) -> ContractAnalysis:
         """
         Analyze a smart contract for vulnerabilities.
-
-        Args:
-            contract_code: The Solidity contract source code
-
-        Returns:
-            ContractAnalysis with vulnerabilities found
         """
-        system_prompt = Path(__file__).parent.parent / "prompts" / "analysis.txt"
-        if system_prompt.exists():
-            with open(system_prompt) as f:
-                system_content = f.read()
-        else:
-            system_content = """You are a smart contract security auditor.
-Analyze the provided Solidity code for vulnerabilities.
-Return results in JSON format with your findings."""
-
         messages = [
-            {"role": "system", "content": system_content},
+            {
+                "role": "system",
+                "content": """You are a smart contract security auditor.
+Analyze the provided Solidity code for vulnerabilities.
+Return results in JSON format:
+{
+  "vulnerabilities": [
+    {
+      "type": "reentrancy",
+      "severity": "critical",
+      "description": "...",
+      "line_numbers": [10, 15],
+      "exploit_scenario": "...",
+      "recommendation": "..."
+    }
+  ],
+  "overall_risk_score": 0.8,
+  "summary": "..."
+}""",
+            },
             {
                 "role": "user",
                 "content": f"Analyze this contract:\n\n```solidity\n{contract_code}\n```",
@@ -103,7 +104,6 @@ Return results in JSON format with your findings."""
             content = response["choices"][0]["message"]["content"]
 
             # Parse JSON response
-            # Handle potential markdown formatting
             content = content.strip()
             if content.startswith("```json"):
                 content = content[7:-3]
@@ -128,96 +128,36 @@ Return results in JSON format with your findings."""
                 vulnerabilities=vulnerabilities,
                 overall_risk_score=data.get("overall_risk_score", 0),
                 summary=data.get("summary", "No issues found"),
-                contract_address="",  # Set by caller
+                contract_address="",
             )
 
-        except (json.JSONDecodeError, KeyError) as e:
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
             logger.error(f"Failed to parse MiniMax response: {e}")
             return ContractAnalysis(
                 vulnerabilities=[],
                 overall_risk_score=0,
-                summary="Analysis failed",
+                summary="Analysis failed - could not parse AI response",
                 contract_address="",
             )
 
-    async def generate_warning(
-        self,
-        vulnerability: Vulnerability,
-        contract_address: str,
-    ) -> str:
+    async def generate_warning(self, vulnerability: dict, contract_address: str) -> str:
         """
         Generate a security warning for a vulnerability.
-
-        Args:
-            vulnerability: The vulnerability details
-            contract_address: Address of the vulnerable contract
-
-        Returns:
-            Warning message string
         """
-        system_prompt = Path(__file__).parent.parent / "prompts" / "warning.txt"
-        if system_prompt.exists():
-            with open(system_prompt) as f:
-                system_content = f.read()
-        else:
-            system_content = """You generate security warnings for smart contract vulnerabilities.
-Be concise but informative. Include severity level without revealing full exploit details."""
-
         messages = [
-            {"role": "system", "content": system_content},
+            {
+                "role": "system",
+                "content": "You generate security warnings. Be concise but informative.",
+            },
             {
                 "role": "user",
-                "content": f"""Generate a security warning:
-Vulnerability: {vulnerability.type}
-Severity: {vulnerability.severity}
-Contract: {contract_address}
-Description: {vulnerability.description}""",
+                "content": f"Generate a warning for:\nType: {vulnerability.get('type', 'unknown')}\nSeverity: {vulnerability.get('severity', 'medium')}\nContract: {contract_address}\nDescription: {vulnerability.get('description', '')}",
             },
         ]
 
         try:
             response = await self._call(messages)
             return response["choices"][0]["message"]["content"]
-        except (json.JSONDecodeError, KeyError) as e:
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
             logger.error(f"Failed to generate warning: {e}")
-            return f"Security Alert: {vulnerability.type} found in {contract_address}"
-
-    async def generate_fuzzing_strategy(
-        self, contract_code: str, vulnerability_type: str
-    ) -> dict:
-        """
-        Generate a fuzzing strategy for a specific vulnerability type.
-
-        Args:
-            contract_code: The contract code
-            vulnerability_type: Type of vulnerability to target
-
-        Returns:
-            Fuzzing strategy dictionary
-        """
-        messages = [
-            {
-                "role": "system",
-                "content": "You are a smart contract security tester. "
-                "Generate fuzzing strategies to test for specific vulnerabilities.",
-            },
-            {
-                "role": "user",
-                "content": f"""Generate a fuzzing strategy for:
-Contract:\n{contract_code}
-Target Vulnerability: {vulnerability_type}
-
-Provide:
-1. Test function signature
-2. Key assertions to check
-3. Edge cases to explore
-4. Expected outcomes""",
-            },
-        ]
-
-        try:
-            response = await self._call(messages)
-            return {"strategy": response["choices"][0]["message"]["content"]}
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Failed to generate fuzzing strategy: {e}")
-            return {"strategy": "Fuzzing strategy generation failed"}
+            return f"Security Alert: {vulnerability.get('type', 'issue')} found in {contract_address}"
