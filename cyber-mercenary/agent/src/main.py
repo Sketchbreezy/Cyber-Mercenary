@@ -17,12 +17,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import Settings
-from services.minimax import MiniMaxClient
-from services.scanner import ContractScanner
-from services.signer import SignatureManager
-from services.notifier import NotificationService
-from jobs.scanner_job import ScannerJob
-from jobs.bounty_job import BountyJob
 
 # Configure logging
 logging.basicConfig(
@@ -44,16 +38,24 @@ class CyberMercenary:
         self.running = False
 
         # Initialize services
+        from services.minimax import MiniMaxClient
+        from services.scanner import ContractScanner
+        from services.signer import SignatureManager
+        from services.notifier import NotificationService
+
         self.minimax = MiniMaxClient(config)
         self.scanner = ContractScanner(config)
         self.signer = SignatureManager(config)
         self.notifier = NotificationService(config)
 
         # Initialize jobs
+        from jobs.scanner_job import ScannerJob
+        from jobs.bounty_job import BountyJob
+
         self.scanner_job = ScannerJob(self, config)
         self.bounty_job = BountyJob(self, config)
 
-        logger.info(f"CyberMercenary initialized: {config.agent_name}")
+        logger.info(f"CyberMercenary initialized: {config.agent.name}")
 
     async def start(self):
         """Start the agent"""
@@ -67,10 +69,10 @@ class CyberMercenary:
         ]
 
         # Start API server
-        from api.server import create_app
-        app = create_app(self)
-        import uvicorn
+        from api.server import app, set_agent
+        set_agent(self)
 
+        import uvicorn
         config = uvicorn.Config(
             app,
             host="0.0.0.0",

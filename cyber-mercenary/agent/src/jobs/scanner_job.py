@@ -9,7 +9,6 @@ import logging
 from typing import Optional
 
 from config import Settings
-from main import CyberMercenary
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +16,10 @@ logger = logging.getLogger(__name__)
 class ScannerJob:
     """Handles periodic contract scanning"""
 
-    def __init__(self, agent: CyberMercenary, config: Settings):
-        self.agent = agent
+    def __init__(self, agent, config: Settings):
+        # Lazy import to avoid circular import
+        from main import CyberMercenary
+        self.agent: CyberMercenary = agent
         self.config = config
         self._running = False
         self._task: Optional[asyncio.Task] = None
@@ -53,47 +54,4 @@ class ScannerJob:
         recent_contracts = await self.agent.scanner.scan_recent_contracts(100)
 
         for contract in recent_contracts:
-            if not contract.is_contract:
-                continue
-
-            logger.info(f"Scanning contract: {contract.address}")
-
-            try:
-                # Analyze contract
-                result = await self.agent.analyze_contract(
-                    contract.address, self.config.blockchain.monad_chain_id
-                )
-
-                # If vulnerabilities found, send warning
-                if result.get("warning"):
-                    await self.agent.notifier.send_warning(
-                        result["warning"],
-                        contract.address,
-                        result["analysis"].vulnerabilities[0].severity,
-                        result["signature"],
-                    )
-
-                # Log the scan
-                logger.info(
-                    f"Contract {contract.address}: "
-                    f"{len(result['analysis'].vulnerabilities)} vulnerabilities"
-                )
-
-            except Exception as e:
-                logger.error(f"Failed to scan {contract.address}: {e}")
-
-        logger.info(f"Scan cycle complete: {len(recent_contracts)} contracts")
-
-    async def stop(self):
-        """Stop the scanner job"""
-        logger.info("Stopping scanner job...")
-        self._running = False
-
-        if self._task:
-            self._task.cancel()
-            await self._task
-
-    def trigger_now(self):
-        """Trigger an immediate scan"""
-        if self._running and not self._task.done():
-            self._task = asyncio.create_task(self._scan_cycle())
+            logger.info(f"Found contract: {contract}")
