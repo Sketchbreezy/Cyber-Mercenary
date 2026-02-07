@@ -19,10 +19,10 @@ import re
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 
 from config import settings
-from security import (
+from .security import (
     SecurityHeadersMiddleware,
     sanitize_input,
     validate_ethereum_address,

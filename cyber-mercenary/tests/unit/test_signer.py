@@ -12,7 +12,7 @@ class TestSignatureManager:
 
     def test_sign_message_returns_signed_message(self, mock_config):
         """Test that sign_message returns a properly signed message."""
-        from services.signer import SignatureManager, SignedMessage
+        from services.signer import SignatureManager, SignedMessage, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -29,7 +29,7 @@ class TestSignatureManager:
 
     def test_address_returns_correct_address(self, mock_config):
         """Test that address property returns the correct signer address."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -41,7 +41,7 @@ class TestSignatureManager:
 
     def test_verify_valid_signature(self, mock_config):
         """Test that verify_signature returns True for a valid signature."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -59,7 +59,7 @@ class TestSignatureManager:
 
     def test_verify_invalid_signature(self, mock_config):
         """Test that verify_signature returns False for an invalid signature."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -74,7 +74,7 @@ class TestSignatureManager:
 
     def test_verify_wrong_address(self, mock_config):
         """Test that verify_signature returns False for wrong address."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -92,7 +92,7 @@ class TestSignatureManager:
 
     def test_sign_warning_creates_structured_message(self, mock_config):
         """Test that sign_warning creates a properly structured warning."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -105,7 +105,7 @@ class TestSignatureManager:
 
     def test_sign_message_without_private_key_raises(self):
         """Test that signing without a private key raises an error."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         mock_config_no_key = Mock()
         mock_config_no_key.blockchain.private_key = None
@@ -117,7 +117,7 @@ class TestSignatureManager:
 
     def test_create_delegation(self, mock_config):
         """Test that create_delegation returns delegation data and signature."""
-        from services.signer import SignatureManager
+        from services.signer import SignatureManager, SignedMessage
 
         manager = SignatureManager(mock_config)
 
@@ -131,5 +131,5 @@ class TestSignatureManager:
         assert "delegate" in data
         assert "expiration" in data
         assert "nonce" in data
-        assert isinstance(signature, type(mock_config))
+        assert isinstance(signature, SignedMessage)
         assert signature.signature.startswith("0x")

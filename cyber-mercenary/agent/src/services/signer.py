@@ -60,11 +60,19 @@ class SignatureManager:
 
             # Use web3 for keccak hash
             hash_bytes = Web3.keccak(text=message)
+            hash_hex = hash_bytes.hex()
+            if not hash_hex.startswith('0x'):
+                hash_hex = '0x' + hash_hex
+
+            # Ensure signature has 0x prefix
+            sig_hex = signed.signature.hex()
+            if not sig_hex.startswith('0x'):
+                sig_hex = '0x' + sig_hex
 
             return SignedMessage(
                 message=message,
-                signature=signed.signature.hex(),
-                hash=hash_bytes.hex(),
+                signature=sig_hex,
+                hash=hash_hex,
                 signer_address=account.address,
             )
         except Exception as e:
