@@ -1,0 +1,3 @@
+[submodule "cyber-mercenary/contracts/lib/openzeppelin-contracts"]
+	path = cyber-mercenary/contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts

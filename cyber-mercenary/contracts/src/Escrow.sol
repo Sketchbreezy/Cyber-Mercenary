@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
@@ -52,7 +52,7 @@ contract Escrow is Ownable, ReentrancyGuard, EIP712 {
     event BountyResolved(uint256 indexed id, bool rewarded);
     event FeeCollected(uint256 amount);
 
-    constructor() EIP712("CyberMercenary", "1") {}
+    constructor() Ownable(msg.sender) EIP712("CyberMercenary", "1") {}
 
     /// @notice Create a new bounty
     /// @param ipfsHash Hash of the encrypted vulnerability report
