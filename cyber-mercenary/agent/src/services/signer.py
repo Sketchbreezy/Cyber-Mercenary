@@ -9,7 +9,7 @@ from typing import Optional
 from dataclasses import dataclass
 from eth_account import Account
 from eth_account.messages import encode_typed_data
-from eth_hash import keccak
+from eth_hash.auto import keccak
 
 from config import Settings
 
