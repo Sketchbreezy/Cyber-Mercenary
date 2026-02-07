@@ -56,17 +56,41 @@ class MiniMaxClient:
             "temperature": self.minimax.temperature,
         }
 
-        response = await self.client.post(
-            self.minimax.endpoint,
-            headers={
-                "Authorization": f"Bearer {self.minimax.api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
+        try:
+            response = await self.client.post(
+                self.minimax.endpoint,
+                headers={
+                    "Authorization": f"Bearer {self.minimax.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=30.0,
+            )
 
-        response.raise_for_status()
-        return response.json()
+            # Check for MiniMax specific response format
+            data = response.json()
+
+            # Handle MiniMax response format
+            if "base_resp" in data:
+                status_code = data["base_resp"].get("status_code", 0)
+                if status_code != 0:
+                    logger.error(f"MiniMax API error: {data['base_resp'].get('status_msg', 'Unknown error')}")
+                    return {"error": data["base_resp"].get("status_msg", "API error")}
+
+            # Try standard OpenAI-style format
+            if "choices" in data:
+                return data
+
+            # MiniMax might use different format
+            if "text" in data:
+                return {"choices": [{"message": {"content": data["text"]}}]}
+
+            logger.error(f"Unexpected MiniMax response: {data}")
+            return {"error": "Unexpected response format"}
+
+        except Exception as e:
+            logger.error(f"MiniMax API call failed: {e}")
+            return {"error": str(e)}
 
     async def analyze_contract(self, contract_code: str) -> ContractAnalysis:
         """
@@ -101,6 +125,17 @@ Return results in JSON format:
 
         try:
             response = await self._call(messages)
+
+            # Check for errors
+            if "error" in response:
+                logger.error(f"MiniMax error: {response['error']}")
+                return ContractAnalysis(
+                    vulnerabilities=[],
+                    overall_risk_score=0,
+                    summary=f"Analysis skipped: {response['error']}",
+                    contract_address="",
+                )
+
             content = response["choices"][0]["message"]["content"]
 
             # Parse JSON response
@@ -131,7 +166,7 @@ Return results in JSON format:
                 contract_address="",
             )
 
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
+        except (json.JSONDecodeError, KeyError, TypeError, IndexError) as e:
             logger.error(f"Failed to parse MiniMax response: {e}")
             return ContractAnalysis(
                 vulnerabilities=[],

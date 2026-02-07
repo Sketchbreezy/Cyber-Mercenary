@@ -11,7 +11,7 @@ from datetime import datetime
 
 from eth_account import Account
 from eth_account.messages import encode_defunct
-from eth_hash.auto import keccak
+from web3 import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,13 @@ class SignatureManager:
             encoded = encode_defunct(text=message)
             signed = account.sign_message(encoded)
 
+            # Use web3 for keccak hash
+            hash_bytes = Web3.keccak(text=message)
+
             return SignedMessage(
                 message=message,
                 signature=signed.signature.hex(),
-                hash=keccak(text=message).hex(),
+                hash=hash_bytes.hex(),
                 signer_address=account.address,
             )
         except Exception as e:

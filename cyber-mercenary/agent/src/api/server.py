@@ -281,13 +281,23 @@ async def get_agent_address():
     }
 
 
-@app.post("/api/v1/sign")
-async def sign_message(message: str):
+class SignRequest(BaseModel):
+    message: str
+
+
+class VerifyRequest(BaseModel):
+    message: str
+    signature: str
+    address: str
+
+
+@app.post("/api/v1/sign", response_model=dict)
+async def sign_message(request: SignRequest):
     """Sign a message with ECDSA"""
     if not services_ready:
         raise HTTPException(status_code=503, detail="Services not ready")
 
-    signed = signer.sign_message(message)
+    signed = signer.sign_message(request.message)
     return {
         "message": signed.message,
         "signature": signed.signature,
@@ -296,13 +306,13 @@ async def sign_message(message: str):
     }
 
 
-@app.post("/api/v1/verify")
-async def verify_signature(message: str, signature: str, address: str):
+@app.post("/api/v1/verify", response_model=dict)
+async def verify_signature(request: VerifyRequest):
     """Verify a signature"""
     if not services_ready:
         raise HTTPException(status_code=503, detail="Services not ready")
 
-    valid = signer.verify_signature(message, signature, address)
+    valid = signer.verify_signature(request.message, request.signature, request.address)
     return {
         "valid": valid
     }
