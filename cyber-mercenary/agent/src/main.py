@@ -140,7 +140,7 @@ class CyberMercenary:
 
 async def main():
     """Main entry point"""
-    config = Settings.from_env()
+    config = Settings()
 
     if not config.validate():
         logger.error("Invalid configuration. Please check .env file.")
