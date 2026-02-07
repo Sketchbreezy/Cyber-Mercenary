@@ -2,12 +2,16 @@
 Cyber-Mercenary API - Phase 2
 
 Integrated API with MiniMax AI, database, and ECDSA signing.
+Phase 3: Added rate limiting for production hardening.
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import logging
 import uuid
 import asyncio
@@ -19,6 +23,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 # Initialize services
 try:
@@ -44,6 +51,20 @@ app = FastAPI(
     description="Autonomous AI security agent for Monad",
     version="2.0.0",
 )
+
+# Add rate limiter to app
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return HTTPException(
+        status_code=429,
+        detail={
+            "error": "Rate limit exceeded",
+            "message": "Too many requests. Please slow down.",
+            "retry_after": getattr(exc, "retry_after", 60)
+        }
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,11 +98,23 @@ class BountyRequest(BaseModel):
     expires_in: int = 86400
 
 
-class BountyResponse(BaseModel):
+class SignRequest(BaseModel):
+    message: str
+
+
+class VerifyRequest(BaseModel):
+    message: str
+    signature: str
+    address: str
+
+
+class BountyDisputeRequest(BaseModel):
     bounty_id: int
-    tx_hash: str
-    status: str
-    amount: int
+
+
+class BountyResolveRequest(BaseModel):
+    bounty_id: int
+    reward_developer: bool
 
 
 # Background task for async scanning
@@ -156,7 +189,8 @@ async def perform_scan(scan_id: str, contract_address: str, chain_id: int):
 
 # Endpoints
 @app.get("/health")
-async def health_check():
+@limiter.limit("200/minute")
+async def health_check(request: Request):
     """Health check"""
     return {
         "status": "healthy",
@@ -167,7 +201,8 @@ async def health_check():
 
 
 @app.get("/")
-async def root():
+@limiter.limit("200/minute")
+async def root(request: Request):
     """Root endpoint"""
     return {
         "name": "Cyber-Mercenary",
@@ -178,22 +213,23 @@ async def root():
 
 
 @app.post("/api/v1/scan", response_model=ScanResponse)
-async def submit_scan(request: ScanRequest, background_tasks: BackgroundTasks):
+@limiter.limit("10/minute")
+async def submit_scan(request: Request, scan_request: ScanRequest, background_tasks: BackgroundTasks):
     """Submit a contract for AI-powered scanning"""
     scan_id = f"scan_{uuid.uuid4().hex[:8]}"
 
-    logger.info(f"📝 Scan submitted: {request.contract_address}")
+    logger.info(f"📝 Scan submitted: {scan_request.contract_address}")
 
     # Save initial scan record
-    db.save_scan(scan_id, request.contract_address, request.chain_id, status="queued")
+    db.save_scan(scan_id, scan_request.contract_address, scan_request.chain_id, status="queued")
 
     # Start background scan
-    background_tasks.add_task(perform_scan, scan_id, request.contract_address, request.chain_id)
+    background_tasks.add_task(perform_scan, scan_id, scan_request.contract_address, scan_request.chain_id)
 
     return {
         "scan_id": scan_id,
         "status": "queued",
-        "contract_address": request.contract_address,
+        "contract_address": scan_request.contract_address,
         "vulnerabilities": [],
         "risk_score": 0,
         "warning": None,
@@ -226,41 +262,44 @@ async def get_scan_status(scan_id: str):
 
 
 @app.get("/api/v1/scans")
-async def list_scans(limit: int = 20):
+@limiter.limit("30/minute")
+async def list_scans(request: Request, limit: int = 20):
     """List all scans"""
     return {"scans": db.get_all_scans(limit)}
 
 
 @app.post("/api/v1/bounty/create")
-async def create_bounty(request: BountyRequest):
+@limiter.limit("5/minute")
+async def create_bounty(request: Request, bounty_request: BountyRequest):
     """Create a bounty"""
     if not scanner.is_connected():
         raise HTTPException(status_code=503, detail="Blockchain not connected")
 
     bounty_id, tx_hash = await scanner.create_bounty(
-        request.amount_wei,
-        request.ipfs_hash,
-        request.expires_in
+        bounty_request.amount_wei,
+        bounty_request.ipfs_hash,
+        bounty_request.expires_in
     )
 
-    db.save_bounty(bounty_id, None, request.amount_wei, "created")
+    db.save_bounty(bounty_id, None, bounty_request.amount_wei, "created")
 
     return {
         "bounty_id": bounty_id,
         "tx_hash": tx_hash,
         "status": "created",
-        "amount": request.amount_wei,
+        "amount": bounty_request.amount_wei,
     }
 
 
 @app.get("/api/v1/bounty/{bounty_id}")
-async def get_bounty_status(bounty_id: int):
+@limiter.limit("30/minute")
+async def get_bounty_status(request: Request, bounty_id: int):
     """Get bounty status"""
     bounty = db.get_bounty(bounty_id)
     if not bounty:
         raise HTTPException(status_code=404, detail="Bounty not found")
 
-    chain_status = await scanner.check_bounty_status(bounty_id)
+    chain_status = await scanner.get_bounty_status(bounty_id)
 
     return {
         **bounty,
@@ -268,108 +307,48 @@ async def get_bounty_status(bounty_id: int):
     }
 
 
-@app.get("/api/v1/stats")
-async def get_stats():
-    """Get agent statistics"""
-    return db.get_stats()
-
-
-@app.get("/api/v1/agent/address")
-async def get_agent_address():
-    """Get the agent's signing address"""
-    if not services_ready:
-        raise HTTPException(status_code=503, detail="Services not ready")
-
-    return {
-        "address": signer.address
-    }
-
-
-class SignRequest(BaseModel):
-    message: str
-
-
-class VerifyRequest(BaseModel):
-    message: str
-    signature: str
-    address: str
-
-
-@app.post("/api/v1/sign", response_model=dict)
-async def sign_message(request: SignRequest):
-    """Sign a message with ECDSA"""
-    if not services_ready:
-        raise HTTPException(status_code=503, detail="Services not ready")
-
-    signed = signer.sign_message(request.message)
-    return {
-        "message": signed.message,
-        "signature": signed.signature,
-        "hash": signed.hash,
-        "signer": signed.signer_address
-    }
-
-
-@app.post("/api/v1/verify", response_model=dict)
-async def verify_signature(request: VerifyRequest):
-    """Verify a signature"""
-    if not services_ready:
-        raise HTTPException(status_code=503, detail="Services not ready")
-
-    valid = signer.verify_signature(request.message, request.signature, request.address)
-    return {
-        "valid": valid
-    }
-
-
-class BountyDisputeRequest(BaseModel):
-    bounty_id: int
-
-
-class BountyResolveRequest(BaseModel):
-    bounty_id: int
-    reward_developer: bool
-
-
 @app.post("/api/v1/bounty/{bounty_id}/dispute")
-async def dispute_bounty(request: BountyDisputeRequest):
+@limiter.limit("5/minute")
+async def dispute_bounty(request: Request, bounty_request: BountyDisputeRequest):
     """File a dispute for a bounty"""
     if not scanner.is_connected():
         raise HTTPException(status_code=503, detail="Blockchain not connected")
 
-    tx_hash = await scanner.dispute_bounty(request.bounty_id)
+    tx_hash = await scanner.dispute_bounty(bounty_request.bounty_id)
 
     if tx_hash.startswith("error"):
         raise HTTPException(status_code=400, detail=tx_hash)
 
     return {
-        "bounty_id": request.bounty_id,
+        "bounty_id": bounty_request.bounty_id,
         "tx_hash": tx_hash,
         "status": "disputed"
     }
 
 
 @app.post("/api/v1/bounty/{bounty_id}/resolve")
-async def resolve_dispute(request: BountyResolveRequest):
+@limiter.limit("5/minute")
+async def resolve_dispute(request: Request, bounty_request: BountyResolveRequest):
     """Resolve a dispute (owner only)"""
     if not scanner.is_connected():
         raise HTTPException(status_code=503, detail="Blockchain not connected")
 
-    tx_hash = await scanner.resolve_dispute(request.bounty_id, request.reward_developer)
+    tx_hash = await scanner.resolve_dispute(bounty_request.bounty_id, bounty_request.reward_developer)
 
     if tx_hash.startswith("error"):
         raise HTTPException(status_code=400, detail=tx_hash)
 
     return {
-        "bounty_id": request.bounty_id,
+        "bounty_id": bounty_request.bounty_id,
         "tx_hash": tx_hash,
-        "reward_developer": request.reward_developer,
+        "reward_developer": bounty_request.reward_developer,
         "status": "resolved"
     }
 
 
 @app.post("/api/v1/bounty/{bounty_id}/claim")
-async def claim_bounty(bounty_id: int):
+@limiter.limit("5/minute")
+async def claim_bounty(request: Request, bounty_id: int):
     """Claim a bounty"""
     if not scanner.is_connected():
         raise HTTPException(status_code=503, detail="Blockchain not connected")
@@ -401,6 +380,54 @@ async def submit_report(bounty_id: int, signature: str):
         "bounty_id": bounty_id,
         "tx_hash": tx_hash,
         "status": "report_submitted"
+    }
+
+
+@app.get("/api/v1/stats")
+@limiter.limit("60/minute")
+async def get_stats(request: Request):
+    """Get agent statistics"""
+    return db.get_stats()
+
+
+@app.get("/api/v1/agent/address")
+@limiter.limit("60/minute")
+async def get_agent_address(request: Request):
+    """Get the agent's signing address"""
+    if not services_ready:
+        raise HTTPException(status_code=503, detail="Services not ready")
+
+    return {
+        "address": signer.address
+    }
+
+
+@app.post("/api/v1/sign")
+@limiter.limit("30/minute")
+async def sign_message(request: Request, sign_request: SignRequest):
+    """Sign a message with ECDSA"""
+    if not services_ready:
+        raise HTTPException(status_code=503, detail="Services not ready")
+
+    signed = signer.sign_message(sign_request.message)
+    return {
+        "message": signed.message,
+        "signature": signed.signature,
+        "hash": signed.hash,
+        "signer": signed.signer_address
+    }
+
+
+@app.post("/api/v1/verify")
+@limiter.limit("30/minute")
+async def verify_signature(request: Request, verify_request: VerifyRequest):
+    """Verify a signature"""
+    if not services_ready:
+        raise HTTPException(status_code=503, detail="Services not ready")
+
+    valid = signer.verify_signature(verify_request.message, verify_request.signature, verify_request.address)
+    return {
+        "valid": valid
     }
 
 
