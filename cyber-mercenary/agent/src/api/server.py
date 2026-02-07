@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,6 @@ async def health_check():
 @app.post("/api/v1/scan", response_model=ScanResponse)
 async def submit_scan(request: ScanRequest):
     """Submit a contract for scanning"""
-    import uuid
     scan_id = f"scan_{uuid.uuid4().hex[:8]}"
     
     logger.info(f"📝 Scan submitted: {request.contract_address}")
@@ -123,4 +123,4 @@ async def root():
     }
 
 
-print("✅ API Server loaded")
+logger.info("✅ API Server loaded")

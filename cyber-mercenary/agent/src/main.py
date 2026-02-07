@@ -30,14 +30,9 @@ logger = logging.getLogger(__name__)
 
 # Check config
 PRIVATE_KEY = os.environ.get("PRIVATE_KEY", "")
-MINIMAX_API_KEY = os.environ.get("MINIMAX_API_KEY", "")
 
 if not PRIVATE_KEY:
     logger.error("❌ PRIVATE_KEY not set in .env")
-    exit(1)
-
-if not MINIMAX_API_KEY:
-    logger.error("❌ MINIMAX_API_KEY not set in .env")  
     exit(1)
 
 logger.info("✅ Configuration validated")
@@ -47,6 +42,10 @@ logger.info(f"📡 RPC: {os.environ.get('MONAD_RPC_URL', 'wss://monad-testnet.dr
 async def main():
     """Main entry point"""
     logger.info("🚀 Cyber-Mercenary Agent Starting...")
+    
+    # Create data directory if it doesn't exist
+    data_dir = Path(__file__).parent.parent.parent / "data"
+    data_dir.mkdir(exist_ok=True)
     
     # Import services
     from api.server import app
