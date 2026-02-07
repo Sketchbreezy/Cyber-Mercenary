@@ -204,7 +204,9 @@ class ContractScanner:
     def _sign_and_send(self, tx) -> str:
         """Sign and send a transaction, return tx hash"""
         signed = self.w3.eth.account.sign_transaction(tx, self.config.blockchain.private_key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        # Handle both old and new web3.py versions
+        raw_tx = getattr(signed, 'rawTransaction', None) or getattr(signed, 'raw_transaction', None)
+        tx_hash = self.w3.eth.send_raw_transaction(raw_tx)
         return tx_hash.hex()
 
     async def create_bounty(self, amount_wei: int, ipfs_hash: str, expires_in: int = 86400) -> Tuple[int, str]:

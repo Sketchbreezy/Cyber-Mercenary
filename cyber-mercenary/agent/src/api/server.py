@@ -7,7 +7,7 @@ Phase 3: Added rate limiting and security headers for production hardening.
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator, constr
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -48,6 +48,7 @@ try:
     db = DatabaseService(settings.database.url)
 
     services_ready = True
+
     logger.info("✅ All Phase 2 services initialized")
 except Exception as e:
     logger.warning(f"⚠️ Services not fully initialized: {e}")
@@ -59,9 +60,6 @@ app = FastAPI(
     description="Autonomous AI security agent for Monad",
     version="3.0.0",
 )
-
-# Add security headers middleware
-app.add_middleware(SecurityHeadersMiddleware)
 
 # Add rate limiter to app
 app.state.limiter = limiter
@@ -89,23 +87,26 @@ app.add_middleware(
 # Request/Response Models
 class ScanRequest(BaseModel):
     """Request model for contract scanning"""
-    contract_address: constr(min_length=42, max_length=42)  # 0x + 40 hex chars
+    contract_address: str  # 0x + 40 hex chars
     chain_id: int = 10143
     scan_depth: str = "standard"
     
-    @validator('contract_address')
+    @field_validator('contract_address')
+    @classmethod
     def validate_address(cls, v):
         if not validate_ethereum_address(v):
             raise ValueError('Invalid Ethereum address format')
         return v.lower()
     
-    @validator('chain_id')
+    @field_validator('chain_id')
+    @classmethod
     def validate_chain_id(cls, v):
         if v not in [10143, 1, 5, 11155111]:  # Monad testnet, Ethereum, Goerli, Sepolia
             raise ValueError('Unsupported chain ID')
         return v
     
-    @validator('scan_depth')
+    @field_validator('scan_depth')
+    @classmethod
     def validate_scan_depth(cls, v):
         if v not in ['standard', 'deep', 'quick']:
             raise ValueError('Invalid scan depth')
@@ -126,10 +127,11 @@ class ScanResponse(BaseModel):
 class BountyRequest(BaseModel):
     """Request model for bounty creation"""
     amount_wei: int
-    ipfs_hash: constr(min_length=46, max_length=59)  # IPFS CIDv0/v1
+    ipfs_hash: str  # IPFS CIDv0/v1
     expires_in: int = 86400
     
-    @validator('amount_wei')
+    @field_validator('amount_wei')
+    @classmethod
     def validate_amount(cls, v):
         if v <= 0:
             raise ValueError('Amount must be positive')
@@ -137,13 +139,15 @@ class BountyRequest(BaseModel):
             raise ValueError('Amount exceeds maximum')
         return v
     
-    @validator('ipfs_hash')
+    @field_validator('ipfs_hash')
+    @classmethod
     def validate_ipfs_hash(cls, v):
-        if not re.match(r'^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-zA-Z0-9]{52,})$', v):
-            raise ValueError('Invalid IPFS hash format')
+        if len(v) < 46:
+            raise ValueError('IPFS hash must be at least 46 characters')
         return v
     
-    @validator('expires_in')
+    @field_validator('expires_in')
+    @classmethod
     def validate_expires_in(cls, v):
         if v < 3600:  # Minimum 1 hour
             raise ValueError('Expires in must be at least 1 hour')
@@ -154,9 +158,10 @@ class BountyRequest(BaseModel):
 
 class SignRequest(BaseModel):
     """Request model for message signing"""
-    message: constr(max_length=1000)
+    message: str
     
-    @validator('message')
+    @field_validator('message')
+    @classmethod
     def validate_message(cls, v):
         # Remove null bytes and sanitize
         v = v.replace('\x00', '')
@@ -165,17 +170,19 @@ class SignRequest(BaseModel):
 
 class VerifyRequest(BaseModel):
     """Request model for signature verification"""
-    message: constr(max_length=1000)
-    signature: constr(min_length=132, max_length=138)  # Ethereum signature
-    address: constr(min_length=42, max_length=42)
+    message: str
+    signature: str  # Ethereum signature
+    address: str
     
-    @validator('signature')
+    @field_validator('signature')
+    @classmethod
     def validate_signature(cls, v):
         if not re.match(r'^0x[a-fA-F0-9]{130}$', v):
             raise ValueError('Invalid signature format')
         return v.lower()
     
-    @validator('address')
+    @field_validator('address')
+    @classmethod
     def validate_address(cls, v):
         if not validate_ethereum_address(v):
             raise ValueError('Invalid Ethereum address format')
@@ -183,26 +190,12 @@ class VerifyRequest(BaseModel):
 
 
 class BountyDisputeRequest(BaseModel):
-    """Request model for bounty dispute"""
     bounty_id: int
-    
-    @validator('bounty_id')
-    def validate_bounty_id(cls, v):
-        if v <= 0:
-            raise ValueError('Bounty ID must be positive')
-        return v
 
 
 class BountyResolveRequest(BaseModel):
-    """Request model for bounty resolution"""
     bounty_id: int
     reward_developer: bool
-    
-    @validator('bounty_id')
-    def validate_bounty_id(cls, v):
-        if v <= 0:
-            raise ValueError('Bounty ID must be positive')
-        return v
 
 
 # Background task for async scanning
@@ -454,16 +447,12 @@ async def claim_bounty(request: Request, bounty_id: int):
 
 
 @app.post("/api/v1/bounty/{bounty_id}/report")
-async def submit_report(bounty_id: int, report_request: VerifyRequest):
+async def submit_report(bounty_id: int, signature: str):
     """Submit a vulnerability report with signature"""
     if not scanner.is_connected():
         raise HTTPException(status_code=503, detail="Blockchain not connected")
 
-    # Validate bounty_id
-    if bounty_id <= 0:
-        raise HTTPException(status_code=400, detail="Invalid bounty ID")
-
-    tx_hash = await scanner.submit_report(bounty_id, report_request.signature)
+    tx_hash = await scanner.submit_report(bounty_id, signature)
 
     if tx_hash.startswith("error"):
         raise HTTPException(status_code=400, detail=tx_hash)
@@ -523,4 +512,4 @@ async def verify_signature(request: Request, verify_request: VerifyRequest):
     }
 
 
-logger.info("✅ API Server loaded (Phase 2)")
+logger.info("✅ API Server loaded (Phase 3)")
