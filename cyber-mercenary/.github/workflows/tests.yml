@@ -1,0 +1,84 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-asyncio pytest-cov
+          pip install -e agent/.[dev]
+
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --cov=agent/src --cov-report=xml --cov-report=term
+        working-directory: ./agent
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./agent/coverage.xml
+          fail_ci_if_error: false
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx
+          pip install -e agent/.[dev]
+
+      - name: Run integration tests
+        run: pytest tests/api/ -v
+        working-directory: ./agent
+
+  contract-tests:
+    name: Contract Tests (Forge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install Foundry dependencies
+        run: forge install
+
+      - name: Compile contracts
+        run: forge build
+
+      - name: Run Forge tests
+        run: forge test --match-contract EscrowTest -vv
