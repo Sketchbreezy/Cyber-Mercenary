@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Cyber-Mercenary Agent - Minimal Working Version
 """
@@ -6,24 +7,30 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Simple config - just read .env directly
-def getenv(key, default=""):
-    return os.environ.get(key, default)
+# Load .env file from project root
+env_path = Path(__file__).parent.parent.parent / ".env"
+if env_path.exists():
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ[key.strip()] = value.strip()
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
 
+
 # Check config
-PRIVATE_KEY = getenv("PRIVATE_KEY")
-MINIMAX_API_KEY = getenv("MINIMAX_API_KEY")
+PRIVATE_KEY = os.environ.get("PRIVATE_KEY", "")
+MINIMAX_API_KEY = os.environ.get("MINIMAX_API_KEY", "")
 
 if not PRIVATE_KEY:
     logger.error("❌ PRIVATE_KEY not set in .env")
@@ -34,21 +41,16 @@ if not MINIMAX_API_KEY:
     exit(1)
 
 logger.info("✅ Configuration validated")
+logger.info(f"📡 RPC: {os.environ.get('MONAD_RPC_URL', 'wss://monad-testnet.drpc.org')}")
 
 
 async def main():
     """Main entry point"""
     logger.info("🚀 Cyber-Mercenary Agent Starting...")
-    logger.info(f"📡 RPC: {getenv('MONAD_RPC_URL', 'wss://monad-testnet.drpc.org')}")
-    logger.info(f"🔗 Chain ID: {getenv('MONAD_CHAIN_ID', '10143')}")
     
     # Import services
     from api.server import app
     import uvicorn
-    
-    # Set up agent reference for API
-    from api.server import _agent as api_agent
-    api_agent._agent = None  # Will be set when we have full agent
     
     logger.info("🌐 Starting API server on port 8000...")
     
