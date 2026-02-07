@@ -21,7 +21,6 @@ from services.minimax import MiniMaxClient
 from services.scanner import ContractScanner
 from services.signer import SignatureManager
 from services.notifier import NotificationService
-from api.server import create_app
 from jobs.scanner_job import ScannerJob
 from jobs.bounty_job import BountyJob
 
@@ -68,6 +67,7 @@ class CyberMercenary:
         ]
 
         # Start API server
+        from api.server import create_app
         app = create_app(self)
         import uvicorn
 
