@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyber-mercenary
+  namespace: production
+  labels:
+    app: cyber-mercenary
+  annotations:
+    description: "Cyber-Mercenary AI Security Agent Service"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: cyber-mercenary
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyber-mercenary-headless
+  namespace: production
+  labels:
+    app: cyber-mercenary
+spec:
+  clusterIP: None
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: cyber-mercenary

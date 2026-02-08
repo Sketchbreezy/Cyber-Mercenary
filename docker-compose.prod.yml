@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  cyber-mercenary:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cyber-mercenary-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONAD_RPC_URL=${MONAD_RPC_URL:-wss://monad-testnet.drpc.org}
+      - MONAD_CHAIN_ID=${MONAD_CHAIN_ID:-10143}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - ESCROW_CONTRACT_ADDRESS=${ESCROW_CONTRACT_ADDRESS}
+      - SCAN_INTERVAL_MINUTES=${SCAN_INTERVAL_MINUTES:-30}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - cyber-mercenary-network
+
+networks:
+  cyber-mercenary-network:
+    driver: bridge

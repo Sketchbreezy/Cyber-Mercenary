@@ -1,0 +1,20 @@
+{{- /*
+Expand the name of the chart.
+*/ -}}
+{{- $name := include "cyber-mercenary.name" . -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cyber-mercenary.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cyber-mercenary.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cyber-mercenary.selectorLabels" . | nindent 4 }}

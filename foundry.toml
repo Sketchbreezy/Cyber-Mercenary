@@ -1,0 +1,39 @@
+# Foundry Configuration for Cyber-Mercenary
+# https://book.getfoundry.sh/reference/config
+
+[profile.default]
+src = "contracts/src"
+out = "out"
+libs = ["contracts/lib"]
+test = "contracts/test"
+cache_path = "contracts/cache"
+broadcast = "broadcast"
+ffi = false
+fs_permissions = [{ access = "read", path = "./" }]
+
+[remappings]
+"forge-std/Test.sol" = "contracts/lib/forge-std/src/Test.sol"
+"@openzeppelin/contracts" = "contracts/lib/openzeppelin-contracts/contracts"
+"erc4626-tests" = "contracts/lib/openzeppelin-contracts/lib/erc4626-tests"
+"halmos-cheatcodes" = "contracts/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src"
+"openzeppelin-contracts" = "contracts/lib/openzeppelin-contracts"
+
+[rpc_endpoints]
+monad_testnet = "https://monad-testnet.drpc.org"
+
+[etherscan]
+monad_testnet = { key = "${ETHERSCAN_API_KEY}" }
+
+[solidity]
+version = "0.8.24"
+optimizer = true
+runs = 200
+via_ir = false
+libraries = {}
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func = "parameters_first"

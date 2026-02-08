@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  cyber-mercenary:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cyber-mercenary-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MONAD_RPC_URL=${MONAD_RPC_URL:-https://monad-testnet.drpc.org}
+      - MONAD_CHAIN_ID=${MONAD_CHAIN_ID:-10143}
+      - ESCROW_CONTRACT_ADDRESS=${ESCROW_CONTRACT_ADDRESS}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY}
+      - MINIMAX_ENDPOINT=${MINIMAX_ENDPOINT:-https://openrouter.ai/api/v1/chat/completions}
+      - MINIMAX_MODEL=${MINIMAX_MODEL:-minimax/minimax-m2.1}
+    volumes:
+      - ./data:/app/data
+      - ./agent:/app/agent
+      - ./contracts:/app/contracts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: PostgreSQL for production
+  postgres:
+    image: postgres:15-alpine
+    container_name: cyber-mercenary-db
+    environment:
+      - POSTGRES_DB=cyber_mercenary
+      - POSTGRES_USER=cyber_mercenary
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cyber_mercenary_secure}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cyber_mercenary"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Redis for caching/queue
+  redis:
+    image: redis:7-alpine
+    container_name: cyber-mercenary-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: cyber-mercenary-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  # Optional: Grafana dashboard
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: cyber-mercenary-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  grafana_data:
+
+networks:
+  default:
+    driver: bridge

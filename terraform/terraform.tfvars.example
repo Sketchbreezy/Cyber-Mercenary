@@ -1,0 +1,36 @@
+# Terraform variables for Cyber-Mercenary
+# Copy this file to terraform.tfvars and fill in your values
+
+# Container image
+image_tag = "latest"
+registry  = "ghcr.io"
+repository = "sketchbreezy/cyber-mercenary"
+
+# Kubernetes cluster
+kubernetes_cluster = "your-cluster-name"
+
+# Environment
+environment = "production"
+
+# Resource sizing
+app_replica_count = 3
+app_cpu_limit     = "2000m"
+app_memory_limit  = "2Gi"
+app_cpu_request   = "500m"
+app_memory_request = "512Mi"
+
+# Domain
+domain_name = "api.cyber-mercenary.io"
+
+# Database (optional - use managed PostgreSQL)
+enable_postgres = false
+
+# Redis (optional - use managed Redis)
+enable_redis = false
+
+# Monitoring
+enable_monitoring = true
+enable_alerting  = true
+
+# Secrets (use TF_VAR_* environment variables or Azure Key Vault)
+# Do NOT commit actual secrets to version control

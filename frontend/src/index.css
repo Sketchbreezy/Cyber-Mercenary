@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text-primary font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-surface/50 backdrop-blur-md border border-white/10 shadow-xl;
+  }
+  
+  .neon-text {
+    @apply text-primary drop-shadow-[0_0_10px_rgba(0,240,255,0.5)];
+  }
+  
+  .neon-border {
+    @apply border border-primary/50 shadow-[0_0_10px_rgba(0,240,255,0.2)];
+  }
+}
