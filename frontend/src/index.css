@@ -1,12 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: #00f0ff;
+  --color-secondary: #7000ff;
+  --color-accent: #ff003c;
+  --color-success: #00ff88;
+  --color-warning: #ffaa00;
+  --color-danger: #ff003c;
+  --color-background: #0a0a0f;
+  --color-surface: #12121a;
+  --color-border: rgba(255, 255, 255, 0.1);
+}
+
 @layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
   body {
     @apply bg-background text-text-primary font-sans antialiased;
+    background-image: 
+      linear-gradient(to right, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -14,16 +56,310 @@
   }
 }
 
-@layer utilities {
+@layer components {
+  /* Glassmorphism Panel */
   .glass-panel {
-    @apply bg-surface/50 backdrop-blur-md border border-white/10 shadow-xl;
+    @apply bg-surface/50 backdrop-blur-md border border-white/10 shadow-xl rounded-lg;
   }
   
+  .glass-panel-dark {
+    @apply bg-surface/80 backdrop-blur-lg border border-white/5 shadow-2xl rounded-lg;
+  }
+
+  /* Neon Effects */
   .neon-text {
     @apply text-primary drop-shadow-[0_0_10px_rgba(0,240,255,0.5)];
   }
   
   .neon-border {
     @apply border border-primary/50 shadow-[0_0_10px_rgba(0,240,255,0.2)];
+  }
+  
+  .neon-glow {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.3), 0 0 40px rgba(0, 240, 255, 0.1);
+  }
+  
+  .neon-glow-secondary {
+    box-shadow: 0 0 20px rgba(112, 0, 255, 0.3), 0 0 40px rgba(112, 0, 255, 0.1);
+  }
+
+  /* Cyber Button */
+  .btn-cyber {
+    @apply relative overflow-hidden px-6 py-3 font-bold text-white transition-all duration-300;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #0099ff 100%);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  
+  .btn-cyber:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
+  }
+  
+  .btn-cyber::before {
+    content: '';
+    @apply absolute inset-0 bg-white/20 translate-x-[-100%];
+    transition: transform 0.3s;
+  }
+  
+  .btn-cyber:hover::before {
+    transform: translateX(100%);
+  }
+
+  /* Cyber Card */
+  .card-cyber {
+    @apply relative glass-panel p-6 transition-all duration-300;
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% calc(100% - 15px),
+      calc(100% - 15px) 100%,
+      0 100%
+    );
+  }
+  
+  .card-cyber::before {
+    content: '';
+    @apply absolute top-0 left-0 w-1 h-8 bg-primary;
+  }
+  
+  .card-cyber:hover {
+    @apply border-primary/30;
+    transform: translateY(-4px);
+    box-shadow: 0 10px 40px rgba(0, 240, 255, 0.15);
+  }
+
+  /* Stat Card */
+  .stat-card {
+    @apply relative overflow-hidden glass-panel p-5 transition-all duration-300;
+  }
+  
+  .stat-card::after {
+    content: '';
+    @apply absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-10;
+    background: var(--color-primary);
+  }
+  
+  .stat-card:hover {
+    @apply border-primary/30;
+    transform: translateY(-2px);
+  }
+
+  /* Input Cyber */
+  .input-cyber {
+    @apply w-full px-4 py-3 bg-surface/50 border border-white/10 rounded text-white placeholder-text-muted transition-all duration-300;
+  }
+  
+  .input-cyber:focus {
+    @apply border-primary/50 outline-none;
+    box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1), 0 0 20px rgba(0, 240, 255, 0.1);
+  }
+
+  /* Badge Cyber */
+  .badge-cyber {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider;
+  }
+  
+  .badge-cyber-primary {
+    @apply bg-primary/10 text-primary border border-primary/30;
+  }
+  
+  .badge-cyber-success {
+    @apply bg-success/10 text-success border border-success/30;
+  }
+  
+  .badge-cyber-warning {
+    @apply bg-warning/10 text-warning border border-warning/30;
+  }
+  
+  .badge-cyber-danger {
+    @apply bg-accent/10 text-accent border border-accent/30;
+  }
+
+  /* Table Cyber */
+  .table-cyber {
+    @apply w-full border-collapse;
+  }
+  
+  .table-cyber th {
+    @apply px-4 py-3 text-left text-xs font-bold text-text-muted uppercase tracking-wider border-b border-white/10;
+  }
+  
+  .table-cyber td {
+    @apply px-4 py-4 border-b border-white/5;
+  }
+  
+  .table-cyber tbody tr {
+    @apply transition-colors;
+  }
+  
+  .table-cyber tbody tr:hover {
+    @apply bg-white/5;
+  }
+
+  /* Progress Bar */
+  .progress-cyber {
+    @apply h-2 bg-surface rounded-full overflow-hidden;
+  }
+  
+  .progress-cyber-fill {
+    @apply h-full rounded-full transition-all duration-500;
+    background: linear-gradient(90deg, var(--color-primary), #0099ff);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  }
+
+  /* Loading Spinner */
+  .spinner-cyber {
+    @apply w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin;
+  }
+
+  /* Scan Animation */
+  @keyframes scan-pulse {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.1);
+    }
+  }
+  
+  .scan-pulse {
+    animation: scan-pulse 2s ease-in-out infinite;
+  }
+
+  /* Glitch Effect */
+  @keyframes glitch {
+    0% {
+      transform: translate(0);
+    }
+    20% {
+      transform: translate(-2px, 2px);
+    }
+    40% {
+      transform: translate(-2px, -2px);
+    }
+    60% {
+      transform: translate(2px, 2px);
+    }
+    80% {
+      transform: translate(2px, -2px);
+    }
+    100% {
+      transform: translate(0);
+    }
+  }
+  
+  .glitch {
+    animation: glitch 0.5s ease-in-out;
+  }
+
+  /* Scan Line Animation */
+  @keyframes scan-line {
+    0% {
+      top: 0%;
+    }
+    100% {
+      top: 100%;
+    }
+  }
+  
+  .scan-line::after {
+    content: '';
+    @apply absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent;
+    animation: scan-line 2s linear infinite;
+  }
+
+  /* Fade In Animation */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  /* Pulse Ring */
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.8);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  
+  .pulse-ring::before {
+    content: '';
+    @apply absolute inset-0 rounded-full border-2 border-primary;
+    animation: pulse-ring 1.5s ease-out infinite;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 0 10px currentColor;
+  }
+  
+  .text-shadow-neon {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Truncate with ellipsis */
+  .truncate-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--color-primary), #0099ff);
+  }
+
+  /* Animated gradient border */
+  .border-gradient {
+    position: relative;
+  }
+  
+  .border-gradient::before {
+    content: '';
+    @apply absolute inset-0 rounded-lg p-[1px];
+    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary), var(--color-primary));
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
   }
 }
