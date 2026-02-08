@@ -69,3 +69,5 @@ out/
 *.crt
 secrets/
 credentials/
+
+frontend/.vite/
