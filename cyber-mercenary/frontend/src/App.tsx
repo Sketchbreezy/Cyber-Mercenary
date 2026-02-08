@@ -11,9 +11,9 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/bounty-board" element={<Bounties />} />
+        <Route path="/agent-control" element={<Gigs />} />
         <Route path="/scanner" element={<Scanner />} />
-        <Route path="/bounties" element={<Bounties />} />
-        <Route path="/gigs" element={<Gigs />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>
